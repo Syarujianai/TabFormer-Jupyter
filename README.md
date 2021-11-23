@@ -53,6 +53,7 @@ This project integrates the code from the [TabFormer](https://github.com/IBM/Tab
   embeddings = pd.read_csv("checkpoint-{args.checkpoint}-eval.csv")
   embeddings = embeddings.drop_duplacates("user_id")
   ```
+  - NOTE: zero filling is applied for the user has no transactions 
 
 # TODOs
 
