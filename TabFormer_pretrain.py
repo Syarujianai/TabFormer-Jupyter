@@ -1,7 +1,5 @@
 # encoding: utf-8
 import os
-import math
-import ipdb
 import tqdm
 import pickle
 import logging
@@ -26,6 +24,7 @@ from torch import Tensor
 from torch.nn import CrossEntropyLoss
 from torch.utils.data.dataset import Dataset
 from torch.nn import CrossEntropyLoss, AdaptiveLogSoftmaxWithLoss
+from torch.nn.utils.rnn import pad_sequence
 from torch.nn.functional import log_softmax
 
 from transformers import DataCollatorForLanguageModeling, Trainer, TrainingArguments
@@ -37,9 +36,9 @@ from transformers import (
     GPT2LMHeadModel
 )
 from transformers.tokenization_utils import PreTrainedTokenizer
-from transformers.modeling_bert import ACT2FN, BertLayerNorm
-from transformers.modeling_bert import BertForMaskedLM
-from transformers.configuration_bert import BertConfig
+from transformers.models.bert.modeling_bert import ACT2FN
+from transformers.models.bert.modeling_bert import BertForMaskedLM
+from transformers.models.bert.configuration_bert import BertConfig
 
 
 logger = logging.getLogger(__name__)
@@ -100,18 +99,18 @@ def define_main_parser(parser=None):
                         default='./outputs',
                         help="path to model dump")
     parser.add_argument("--checkpoint", type=int,
-                        default=0,
+                        default=None,
                         help='set to continue training from checkpoint')
     parser.add_argument("--do_train", action='store_true',
                         help="enable training flag")
     parser.add_argument("--do_eval", action='store_true',
                         help="enable evaluation flag")
-    # parser.add_argument("--save_steps", type=int,
-    #                     default=6500,
-    #                     help="set checkpointing")
     parser.add_argument("--save_steps", type=int,
-                        default=3,
+                        default=6500,
                         help="set checkpointing")
+    # parser.add_argument("--save_steps", type=int,
+    #                     default=3,
+    #                     help="set checkpointing")
     parser.add_argument("--num_train_epochs", type=int,
                         default=3,
                         help="number of training epochs")
@@ -627,7 +626,7 @@ class TransactionDataset(Dataset):
 
         ## TR_CD
         log.info("nan resolution.")
-        data = data[~data["TR_CD"].isnull()]  # HACK: ����TR_CD�ǿյ���
+        data = data[~data["TR_CD"].isnull()]  # HACK: drop examples whose TR_CD are None
         
         # continuous features
         ## TR_AMT
@@ -685,6 +684,7 @@ class TransDataCollatorForLanguageModeling(DataCollatorForLanguageModeling):
             self, examples: List[Union[List[int], torch.Tensor, Dict[str, torch.Tensor]]]
     ) -> Dict[str, torch.Tensor]:
         batch = self._tensorize_batch(examples)
+        
         sz = batch.shape
         if self.mlm:
             batch = batch.view(sz[0], -1)
@@ -695,6 +695,19 @@ class TransDataCollatorForLanguageModeling(DataCollatorForLanguageModeling):
             if self.tokenizer.pad_token_id is not None:
                 labels[labels == self.tokenizer.pad_token_id] = -100
             return {"input_ids": batch, "labels": labels}
+
+    def _tensorize_batch(self, examples: List[torch.Tensor]) -> torch.Tensor:
+        length_of_first = examples[0].size(0)
+        are_tensors_same_length = all(x.size(0) == length_of_first for x in examples)
+        if are_tensors_same_length:
+            return torch.stack(examples, dim=0)
+        else:
+            if self.tokenizer._pad_token is None:
+                raise ValueError(
+                    "You are attempting to pad samples but the tokenizer you are using"
+                    f" ({self.tokenizer.__class__.__name__}) does not have one."
+                )
+            return pad_sequence(examples, batch_first=True, padding_value=self.tokenizer.pad_token_id)
 
     def mask_tokens(self, inputs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -844,7 +857,7 @@ class TabFormerBertPredictionHeadTransform(nn.Module):
             self.transform_act_fn = ACT2FN[config.hidden_act]
         else:
             self.transform_act_fn = config.hidden_act
-        self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
     def forward(self, hidden_states):
         hidden_states = self.dense(hidden_states)
@@ -1250,9 +1263,9 @@ def main(args):
     if args.checkpoint:
         model_path = join(args.output_dir, f'checkpoint-{args.checkpoint}')
     else:
-        model_path = args.output_dir
+        model_path = None
 
-    trainer.train(model_path=model_path)
+    trainer.train(resume_from_checkpoint=model_path)
 
 
 
