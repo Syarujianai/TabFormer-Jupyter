@@ -28,11 +28,14 @@ This project integrates the code from the [TabFormer](https://github.com/IBM/Tab
   ```shell
   --data_fname transaction [YOUR DATASET name]
   --dataroot ./data [YOUR DATASET root]
-  --n_layers 2  [number of transformer blocks]
   --save_steps 6500 [checkpoint save steps]
   --checkpoint [YOUR CHEKPOINT]
   --max_truncate_row 100 [maximum number of transactions for single user]
-  --user_ids [SPECIFIED USERs for embedding]
+  --n_layers 2  [number of transformer blocks]
+  --mlm [mask language model loss]
+  --field_ce [cross-fielded transaction embedding]
+  --user_ids [specified users for Evaluation]
+  --do_train [Training or not]
   ```
 
 - For model pretraining:

@@ -104,6 +104,12 @@ def define_main_parser():
                         help="enable training flag")
     parser.add_argument("--do_eval", action='store_true',
                         help="enable evaluation flag")
+    parser.add_argument("--per_device_train_batch_size ", type=int,
+                        default=8, 
+                        help="batch size for evaluation")
+    parser.add_argument("--per_device_eval_batch_size ", type=int,
+                        default=256, 
+                        help="batch size for evaluation")
     # parser.add_argument("--save_steps", type=int,
     #                     default=6500,
     #                     help="set checkpointing")
@@ -1242,13 +1248,14 @@ def main(args):
         output_dir=args.output_dir,  # output directory
         num_train_epochs=args.num_train_epochs,  # total number of training epochs
         logging_dir=args.log_dir,  # directory for storing logs
-        save_steps=args.save_steps,
         do_train=args.do_train,
-        # do_eval=args.do_eval,
-        # evaluation_strategy="epoch",
+        do_eval=args.do_eval,
+        per_device_train_batch_size=args.per_device_train_batch_size,
+        per_device_eval_batch_size=args.per_device_eval_batch_size,
+        save_strategy="epoch",
+        evaluation_strategy="epoch",
         prediction_loss_only=True,
-        overwrite_output_dir=True,
-        # eval_steps=10000
+        overwrite_output_dir=True
     )
 
     trainer = Trainer(

@@ -106,9 +106,9 @@ def define_main_parser():
                         help='set to continue training from checkpoint')
     parser.add_argument("--do_eval", action='store_true',
                         help="enable evaluation flag")
-    parser.add_argument("--save_steps", type=int,
-                        default=10000,
-                        help="set checkpointing")
+    parser.add_argument("--per_device_eval_batch_size ", type=int,
+                        default=256, 
+                        help="batch size for evaluation")
     parser.add_argument("--num_train_epochs", type=int,
                         default=3,
                         help="number of training epochs")
@@ -1187,8 +1187,6 @@ def main(args):
         torch.cuda.manual_seed_all(seed)  # torch.cuda
 
     #==================================arguments===========================
-    args.batch_size = 256
-    args.checkpoint = 3
     # inference test only
     # total_data = pd.read_csv(os.path.join(args.data_root, f'{args.data_fname}.csv'))
     # test_data = total_data[total_data["LABEL"].isnull()]
@@ -1235,7 +1233,7 @@ def main(args):
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset,
                                 sampler=eval_sampler,
-                                batch_size=args.batch_size, 
+                                batch_size=args.per_device_eval_batch_size, 
                                 collate_fn=data_collator.collate_batch,
                                 drop_last=False
                                 )
