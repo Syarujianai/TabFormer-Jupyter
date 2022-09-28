@@ -32,6 +32,7 @@ This project integrates the code from the [TabFormer](https://github.com/IBM/Tab
   --save_steps 6500 [checkpoint save steps]
   --checkpoint [YOUR CHEKPOINT]
   --max_truncate_row 100 [maximum number of transactions for single user]
+  --user_ids [SPECIFIED USERs for embedding]
   ```
 
 - For model pretraining:

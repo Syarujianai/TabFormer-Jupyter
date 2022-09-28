@@ -1,4 +1,6 @@
 # encoding: utf-8
+from http.client import ImproperConnectionState
+import imp
 import os
 import tqdm
 import pickle
@@ -23,9 +25,11 @@ from torch import nn
 from torch import Tensor
 from torch.nn import CrossEntropyLoss
 from torch.utils.data.dataset import Dataset
+from torch.utils.data import SequentialSampler, DataLoader
 from torch.nn import CrossEntropyLoss, AdaptiveLogSoftmaxWithLoss
 from torch.nn.utils.rnn import pad_sequence
 from torch.nn.functional import log_softmax
+
 
 from transformers import DataCollatorForLanguageModeling, Trainer, TrainingArguments
 from transformers.modeling_utils import PreTrainedModel
@@ -51,9 +55,8 @@ logging.basicConfig(
 
 
 """args"""
-def define_main_parser(parser=None):
-    if parser is None:
-        parser = argparse.ArgumentParser()
+def define_main_parser():
+    parser = argparse.ArgumentParser()
 
     parser.add_argument("--jid", type=int,
                         default=1,
@@ -476,7 +479,7 @@ class TransactionDataset(Dataset):
                 for idx, row in user_data.iterrows():
                     row = list(row)
 
-                    # assumption that user is first field
+                    # NOTE: user id must be first field
                     skip_idx = 1 if self.skip_user else 0
 
                     user_trans.extend(row[skip_idx:-1])
@@ -1173,8 +1176,6 @@ class TabFormerEmbeddings(nn.Module):
 
 
 
-from torch.utils.data import SequentialSampler, DataLoader
-
 """Main"""
 def main(args):
     # random seeds
@@ -1188,8 +1189,9 @@ def main(args):
     #==================================arguments===========================
     args.batch_size = 256
     args.checkpoint = 3
-    total_data = pd.read_csv(os.path.join(args.data_root, f'{args.data_fname}.csv'))
-    test_data = total_data[total_data["LABEL"].isnull()]
+    # inference test only
+    # total_data = pd.read_csv(os.path.join(args.data_root, f'{args.data_fname}.csv'))
+    # test_data = total_data[total_data["LABEL"].isnull()]
     # args.user_ids = test_data["CUST_NO"].unique()
     
     user_model_checkpoint = os.path.join(f'checkpoint-{args.checkpoint}')
@@ -1245,6 +1247,7 @@ def main(args):
     log.info(f"evaluation")
     model.eval()
     embeds = []
+
     for batch in tqdm.tqdm(eval_dataloader, desc="Iteration"):
         input_ids, lm_labels, user_ids = batch["input_ids"], batch["lm_labels"], batch["user_ids"]
         _, field_embed = model(input_ids=input_ids, masked_lm_labels=lm_labels)
@@ -1260,7 +1263,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = define_main_parser()
-    opts = parser.parse_args([])
+    opts = parser.parse_args()
     opts.log_dir = join(opts.output_dir, "logs")
     print(opts, '\n')
 

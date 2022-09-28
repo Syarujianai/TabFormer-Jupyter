@@ -51,9 +51,8 @@ logging.basicConfig(
 
 
 """args"""
-def define_main_parser(parser=None):
-    if parser is None:
-        parser = argparse.ArgumentParser()
+def define_main_parser():
+    parser = argparse.ArgumentParser()
 
     parser.add_argument("--jid", type=int,
                         default=1,
@@ -105,12 +104,12 @@ def define_main_parser(parser=None):
                         help="enable training flag")
     parser.add_argument("--do_eval", action='store_true',
                         help="enable evaluation flag")
-    parser.add_argument("--save_steps", type=int,
-                        default=6500,
-                        help="set checkpointing")
     # parser.add_argument("--save_steps", type=int,
-    #                     default=3,
+    #                     default=6500,
     #                     help="set checkpointing")
+    parser.add_argument("--save_steps", type=int,
+                        default=3,
+                        help="set checkpointing")
     parser.add_argument("--num_train_epochs", type=int,
                         default=3,
                         help="number of training epochs")
@@ -478,7 +477,7 @@ class TransactionDataset(Dataset):
                 for idx, row in user_data.iterrows():
                     row = list(row)
 
-                    # assumption that user is first field
+                    # NOTE: user id must be first field
                     skip_idx = 1 if self.skip_user else 0
 
                     user_trans.extend(row[skip_idx:-1])
@@ -510,7 +509,7 @@ class TransactionDataset(Dataset):
                 vocab_id = self.vocab.get_id(field, column_names[jdx])
                 vocab_ids.append(vocab_id)
 
-            # TODO : need to handle ncols when sep is not added
+            # TODO : need to handle ncols when [SEP] is not added
             if self.mlm:  # and self.flatten:  # only add [SEP] for BERT + flatten scenario
                 vocab_ids.append(sep_id)
 
@@ -1201,12 +1200,12 @@ def main(args):
     vocab = dataset.vocab
     custom_special_tokens = vocab.get_special_tokens()
 
-    # split dataset into train, val, test [0.6. 0.2, 0.2]
+    # split dataset into train, val, test [0.8. 0.2, 0]
     totalN = len(dataset)
-    trainN = int(0.6 * totalN)
+    trainN = int(0.8 * totalN)
 
     valtestN = totalN - trainN
-    valN = int(valtestN * 0.5)
+    valN = int(valtestN * 1.0)
     testN = valtestN - valN
 
     assert totalN == trainN + valN + testN
@@ -1271,7 +1270,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = define_main_parser()
-    opts = parser.parse_args([])
+    opts = parser.parse_args()
     opts.log_dir = join(opts.output_dir, "logs")
     print(opts, '\n')
 
