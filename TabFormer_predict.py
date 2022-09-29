@@ -106,7 +106,7 @@ def define_main_parser():
                         help='set to continue training from checkpoint')
     parser.add_argument("--do_eval", action='store_true',
                         help="enable evaluation flag")
-    parser.add_argument("--per_device_eval_batch_size ", type=int,
+    parser.add_argument("--per_device_eval_batch_size", type=int,
                         default=256, 
                         help="batch size for evaluation")
     parser.add_argument("--num_train_epochs", type=int,
