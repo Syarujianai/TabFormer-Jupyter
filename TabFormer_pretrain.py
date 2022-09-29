@@ -110,12 +110,6 @@ def define_main_parser():
     parser.add_argument("--per_device_eval_batch_size", type=int,
                         default=256, 
                         help="batch size for evaluation")
-    # parser.add_argument("--save_steps", type=int,
-    #                     default=6500,
-    #                     help="set checkpointing")
-    parser.add_argument("--save_steps", type=int,
-                        default=3,
-                        help="set checkpointing")
     parser.add_argument("--num_train_epochs", type=int,
                         default=3,
                         help="number of training epochs")
@@ -930,7 +924,7 @@ class TabFormerBertForMaskedLM(BertForMaskedLM):
             encoder_attention_mask=encoder_attention_mask,
         )
 
-        sequence_output = outputs[0]  # [bsz * seqlen * hidden]
+        sequence_output = outputs.last_hidden_state  # [bsz * seqlen * hidden]
 
         if not self.config.flatten:
             output_sz = list(sequence_output.size())
@@ -939,17 +933,13 @@ class TabFormerBertForMaskedLM(BertForMaskedLM):
             masked_lm_labels = masked_lm_labels.view(expected_sz[0], -1)
 
         prediction_scores = self.cls(sequence_output) # [bsz * seqlen * vocab_sz]
-
-        outputs = (prediction_scores,) + outputs[2:]
-
+        outputs = (prediction_scores, outputs.last_hidden_state)
+        
         # prediction_scores : [bsz x seqlen x vsz]
         # masked_lm_labels  : [bsz x seqlen]
-
         total_masked_lm_loss = 0
-
         seq_len = prediction_scores.size(1)
-        # TODO : remove_target is True for card
-        field_names = self.vocab.get_field_keys(remove_target=True, ignore_special=False)
+        field_names = self.vocab.get_field_keys(remove_target=True, ignore_special=False)  # HACK : remove target column
         for field_idx, field_name in enumerate(field_names):
             col_ids = list(range(field_idx, seq_len, len(field_names)))
 

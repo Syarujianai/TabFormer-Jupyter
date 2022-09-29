@@ -928,7 +928,7 @@ class TabFormerBertForMaskedLM(BertForMaskedLM):
             encoder_attention_mask=encoder_attention_mask,
         )
 
-        sequence_output = outputs[0]  # [bsz * seqlen * hidden]
+        sequence_output = outputs.last_hidden_state  # [bsz * seqlen * hidden]
 
         if not self.config.flatten:
             output_sz = list(sequence_output.size())
@@ -937,22 +937,17 @@ class TabFormerBertForMaskedLM(BertForMaskedLM):
             masked_lm_labels = masked_lm_labels.view(expected_sz[0], -1)
 
         prediction_scores = self.cls(sequence_output) # [bsz * seqlen * vocab_sz]
-
-        outputs = (prediction_scores,) + outputs[2:]
-
+        outputs = (prediction_scores, outputs.last_hidden_state)
+        
         # prediction_scores : [bsz x seqlen x vsz]
         # masked_lm_labels  : [bsz x seqlen]
-
         total_masked_lm_loss = 0
-
         seq_len = prediction_scores.size(1)
-        # TODO : remove_target is True for card
-        field_names = self.vocab.get_field_keys(remove_target=True, ignore_special=False)
+        field_names = self.vocab.get_field_keys(remove_target=True, ignore_special=False)  # HACK : remove target column
         for field_idx, field_name in enumerate(field_names):
             col_ids = list(range(field_idx, seq_len, len(field_names)))
 
             global_ids_field = self.vocab.get_field_ids(field_name)
-
             prediction_scores_field = prediction_scores[:, col_ids, :][:, :, global_ids_field]  # bsz * 10 * K
             masked_lm_labels_field = masked_lm_labels[:, col_ids]
             masked_lm_labels_field_local = self.vocab.get_from_global_ids(global_ids=masked_lm_labels_field,
@@ -1246,13 +1241,14 @@ def main(args):
     model.eval()
     embeds = []
 
-    for batch in tqdm.tqdm(eval_dataloader, desc="Iteration"):
-        input_ids, lm_labels, user_ids = batch["input_ids"], batch["lm_labels"], batch["user_ids"]
-        _, field_embed = model(input_ids=input_ids, masked_lm_labels=lm_labels)
-        df_embed = pd.DataFrame(field_embed.mean(1).detach().numpy())
-        df_embed = pd.concat([df_embed, pd.DataFrame(user_ids, columns=["user_id"])], axis=1)
-        df_embed_agg = df_embed.groupby("user_id").agg("mean")
-        embeds.append(df_embed_agg)  # mean embedding
+    with torch.no_grad():
+        for batch in tqdm.tqdm(eval_dataloader, desc="Iteration"):
+            input_ids, lm_labels, user_ids = batch["input_ids"], batch["lm_labels"], batch["user_ids"]
+            _, _, field_embed = model(input_ids=input_ids, masked_lm_labels=lm_labels)
+            df_embed = pd.DataFrame(field_embed.mean(1).detach().numpy())
+            df_embed = pd.concat([df_embed, pd.DataFrame(user_ids, columns=["user_id"])], axis=1)
+            df_embed_agg = df_embed.groupby("user_id").agg("mean")
+            embeds.append(df_embed_agg)  # mean embedding
         
     embeds_to_write = pd.concat(embeds, axis=0)
     embeds_to_write.to_csv(path_to_save_dir)

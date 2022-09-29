@@ -28,7 +28,7 @@ This project integrates the code from the [TabFormer](https://github.com/IBM/Tab
   ```shell
   --data_fname transaction [YOUR DATASET name]
   --dataroot ./data [YOUR DATASET root]
-  --save_steps 6500 [checkpoint save steps]
+  --num_train_epochs [number of training epochs]
   --checkpoint [YOUR CHEKPOINT step]
   --max_truncate_row 100 [maximum number of transactions for single user]
   --n_layers 2 [number of transformer blocks]
