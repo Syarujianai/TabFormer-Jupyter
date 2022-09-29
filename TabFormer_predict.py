@@ -358,7 +358,7 @@ class TransactionDataset(Dataset):
         self.nrows = nrows
         self.fextension = f'_{fextension}' if fextension else ''
         self.cached = cached
-        self.user_ids = user_ids
+        self.input_user_ids = user_ids
         self.return_labels = return_labels
         self.skip_user = skip_user
 
@@ -374,7 +374,8 @@ class TransactionDataset(Dataset):
 
         self.trans_table = None
         self.data = []
-        self.unique_user_ids = []
+        self.unique_users = None
+        self.trans_users = []  # NOTE: not unique for `seq_len` size window sliding on each user
         self.labels = []
         self.window_label = []
 
@@ -392,7 +393,7 @@ class TransactionDataset(Dataset):
         self.prepare_samples()
 
     def __getitem__(self, index):
-        return_user_id = self.unique_user_ids[index]
+        return_user_id = self.trans_users[index]
         if self.flatten:
             return_data = torch.tensor(self.data[index], dtype=torch.long)
         else:
@@ -462,8 +463,8 @@ class TransactionDataset(Dataset):
             columns_names = cached_data["columns"]
             unique_users = pd.DataFrame(cached_data["unique_users"], columns=["CUST_NO"])
             log.info(f"filtering cached user level data by given user ids")
-            if self.user_ids is not None and self.user_ids.any():
-                unique_users = unique_users[unique_users["CUST_NO"].isin(self.user_ids)]
+            if self.input_user_ids is not None and self.input_user_ids.any():
+                unique_users = unique_users[unique_users["CUST_NO"].isin(self.input_user_ids)]
                 trans_data = np.array(trans_data)[unique_users.index].tolist()
                 trans_labels = np.array(trans_labels)[unique_users.index].tolist()
         else:
@@ -535,13 +536,13 @@ class TransactionDataset(Dataset):
                 ids = list(chain(*user_row_ids))
                 ids += list(chain(*([[pad_id] * len(user_row_ids[0])] * seq_len_res)))
                 self.data.append(ids)
-                self.unique_user_ids.append(self.unique_users.loc[user_idx, "CUST_NO"])
+                self.trans_users.append(self.unique_users.loc[user_idx, "CUST_NO"])
             else:
                 for jdx in range(0, len(user_row_ids) - self.seq_len + 1, self.trans_stride):
                     ids = user_row_ids[jdx:(jdx + self.seq_len)]
                     ids = [idx for ids_lst in ids for idx in ids_lst]  # flattening
                     self.data.append(ids)
-                    self.unique_user_ids.append(self.unique_users.loc[user_idx, "CUST_NO"])
+                    self.trans_users.append(self.unique_users.loc[user_idx, "CUST_NO"])
             
             if seq_len_res > 0:
                 fraud = 0
@@ -574,9 +575,9 @@ class TransactionDataset(Dataset):
 
     def get_csv(self, fname):
         data = pd.read_csv(fname, nrows=self.nrows)
-        if self.user_ids is not None and self.user_ids.any():
-            log.info(f'Filtering data by user ids list: {self.user_ids}...')
-            data = data[data['CUST_NO'].isin(self.user_ids)]
+        if self.input_user_ids is not None and self.input_user_ids.any():
+            log.info(f'Filtering data by user ids list: {self.input_user_ids}...')
+            data = data[data['CUST_NO'].isin(self.input_user_ids)]
 
         self.nrows = data.shape[0]
         log.info(f"read data : {data.shape}")

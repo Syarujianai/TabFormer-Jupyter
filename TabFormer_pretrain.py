@@ -373,6 +373,7 @@ class TransactionDataset(Dataset):
 
         self.trans_table = None
         self.data = []
+        self.unique_users = None
         self.labels = []
         self.window_label = []
 
