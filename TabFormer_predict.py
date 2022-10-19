@@ -1248,10 +1248,9 @@ def main(args):
             _, _, field_embed = model(input_ids=input_ids, masked_lm_labels=lm_labels)
             df_embed = pd.DataFrame(field_embed.mean(1).detach().numpy())
             df_embed = pd.concat([df_embed, pd.DataFrame(user_ids, columns=["user_id"])], axis=1)
-            df_embed_agg = df_embed.groupby("user_id").agg("mean")
-            embeds.append(df_embed_agg)  # mean embedding
-        
+            embeds.append(df_embed) 
     embeds_to_write = pd.concat(embeds, axis=0)
+    embeds_to_write = embeds_to_write.groupby("user_id").agg("mean").reset_index()
     embeds_to_write.to_csv(path_to_save_dir)
 
 

@@ -51,11 +51,9 @@ This project integrates the code from the [TabFormer](https://github.com/IBM/Tab
   ```
 
   - embeddings are written into `/outputs/checkpoint-{args.checkpoint}-eval.csv`
-  - user id indices of written `.csv`  embeddings are duplicate, which needs to apply follow steps:
 
   ```python
   embeddings = pd.read_csv("checkpoint-{args.checkpoint}-eval.csv")
-  embeddings = embeddings.drop_duplacates("user_id")
   ```
   - NOTE: zero filling is applied for the user has no transactions 
 
